@@ -1,0 +1,85 @@
+version: '3.8'
+services:
+  server:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - '${SERVER_PORT}:80'
+      - '${SERVER_PORT_SSL}:443'
+      # Uncomment for Development
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      - php
+    #  - db
+  php:
+    build:
+      context: .
+      dockerfile: dockerfiles/php.dockerfile
+      # Uncomment for Development
+    volumes:
+      - ./src:/var/www/html:delegated
+  composer:
+    build:
+      context: ./dockerfiles
+      dockerfile: composer.dockerfile
+    volumes:
+      - ./src:/var/www/html
+  console:
+    build:
+      context: .
+      dockerfile: dockerfiles/php.dockerfile
+    volumes:
+      - ./src:/var/www/html
+    entrypoint: [ 'php', '/var/www/html/bin/console' ]
+  db:
+    image: mariadb
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: example
+      MARIADB_DATABASE: exampledb
+      MARIADB_USER: exampleuser
+      MARIADB_PASSWORD: examplepass
+    ports:
+      - '3306:3306'
+    healthcheck:
+      test: "exit 0"
+    volumes:
+      - api_db:/var/lib/mysql
+      - ./dumpsql:/opt/dumpsql
+  testdb:
+    image: mariadb
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: example
+      MARIADB_DATABASE: exampledb
+      MARIADB_USER: exampleuser
+      MARIADB_PASSWORD: examplepass
+    ports:
+      - '3307:3306'
+    healthcheck:
+      test: "exit 0"
+    volumes:
+      - test-api_db:/var/lib/mysql
+  phpunit:
+    build:
+      context: .
+      dockerfile: dockerfiles/php.dockerfile
+    volumes:
+      - ./src:/var/www/html:delegated
+    working_dir: /var/www/html
+    entrypoint: vendor/bin/phpunit
+    depends_on:
+      - testdb
+  phpxdebug:
+    build:
+      context: .
+      dockerfile: dockerfiles/phpxdebug.dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./src:/var/www/html
+volumes:
+  api_db:
+  test-api_db:
